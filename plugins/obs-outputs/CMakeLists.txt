@@ -154,7 +154,8 @@ set(obs-outputs_SOURCES
 	rtmp-windows.c
 	flv-output.c
 	flv-mux.c
-	net-if.c)
+	net-if.c
+	opentok-output.c)
 
 if(WIN32)
 	set(MODULE_DESCRIPTION "OBS output module")
