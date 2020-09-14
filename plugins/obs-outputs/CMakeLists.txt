@@ -3,6 +3,19 @@ project(obs-outputs)
 set(WITH_RTMPS AUTO CACHE STRING "Enable RTMPS support with mbedTLS")
 set_property(CACHE WITH_RTMPS PROPERTY STRINGS AUTO ON OFF)
 
+# TODO: josemrecio - add support for all platforms
+if("${CMAKE_SYSTEM_NAME}" MATCHES "Linux")
+	find_package(Libopentok REQUIRED)
+else()
+	message(FATAL_ERROR "This version supports OpenTok integration only in Linux")
+endif()
+
+if (LIBOPENTOK_FOUND)
+	include_directories(${LIBOPENTOK_INCLUDE_DIRS})
+else()
+	message(WARNING "OpenTok SDK was not found, OpenTok output will be disabled, UI will be inconsistent")
+endif()
+
 option(STATIC_MBEDTLS "Statically link mbedTLS into binary" OFF)
 
 if (WITH_RTMPS OR (WITH_RTMPS STREQUAL "AUTO"))
@@ -154,8 +167,12 @@ set(obs-outputs_SOURCES
 	rtmp-windows.c
 	flv-output.c
 	flv-mux.c
-	net-if.c
-	opentok-output.c)
+	net-if.c)
+
+if (LIBOPENTOK_FOUND)
+	list(APPEND obs-outputs_SOURCES
+		opentok-output.c)
+endif()
 
 if(WIN32)
 	set(MODULE_DESCRIPTION "OBS output module")
@@ -176,6 +193,7 @@ target_link_libraries(obs-outputs
 	${LIBMBEDTLS_LIBRARIES}
 	${ZLIB_LIBRARIES}
 	${ftl_IMPORTS}
+	${LIBOPENTOK_LIBRARIES}
 	${obs-outputs_PLATFORM_DEPS})
 
 install_obs_plugin_with_data(obs-outputs data)

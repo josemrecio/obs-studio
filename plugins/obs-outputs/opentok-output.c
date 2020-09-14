@@ -7,6 +7,7 @@
 #include <util/dstr.h>
 #include <util/threading.h>
 #include <inttypes.h>
+#include <opentok.h>
 #include "net-if.h"
 
 #define do_log(level, format, ...)                \
@@ -26,8 +27,6 @@
 
 struct opentok_output {
 	obs_output_t *output;
-	struct dstr path;
-	FILE *file;
 	volatile bool active;
 	volatile bool stopping;
 	uint64_t stop_ts;
@@ -61,7 +60,6 @@ static void opentok_output_destroy(void *data)
 	struct opentok_output *stream = data;
 
 	pthread_mutex_destroy(&stream->mutex);
-	dstr_free(&stream->path);
 	bfree(stream);
 }
 
@@ -73,6 +71,7 @@ static bool opentok_output_start(void *data)
 
 	if (!obs_output_can_begin_data_capture(stream->output, 0))
 		return false;
+	// FIXME: josemrecio - this is not correct for this kind of output
 	if (!obs_output_initialize_encoders(stream->output, 0))
 		return false;
 
@@ -80,23 +79,10 @@ static bool opentok_output_start(void *data)
 	stream->sent_headers = false;
 	os_atomic_set_bool(&stream->stopping, false);
 
-	/* get path */
-	settings = obs_output_get_settings(stream->output);
-	path = obs_data_get_string(settings, "path");
-	dstr_copy(&stream->path, path);
-	obs_data_release(settings);
-
-	stream->file = os_fopen(stream->path.array, "wb");
-	if (!stream->file) {
-		warn("Unable to open FLV file '%s'", stream->path.array);
-		return false;
-	}
-
 	/* write headers and start capture */
 	os_atomic_set_bool(&stream->active, true);
 	obs_output_begin_data_capture(stream->output, 0);
 
-	info("Writing FLV file '%s'...", stream->path.array);
 	return true;
 }
 
