@@ -2165,10 +2165,13 @@ EXPORT const char *obs_service_get_url(const obs_service_t *service);
 /** Returns the stream key (if any) for this service context */
 EXPORT const char *obs_service_get_key(const obs_service_t *service);
 
-/** Returns the stream session (if any) for this service context */
+/** Returns the opentok api key (if any) for this service context */
+EXPORT const char *obs_service_get_api_key(const obs_service_t *service);
+
+/** Returns the opentok session (if any) for this service context */
 EXPORT const char *obs_service_get_session(const obs_service_t *service);
 
-/** Returns the stream token (if any) for this service context */
+/** Returns the opentok token (if any) for this service context */
 EXPORT const char *obs_service_get_token(const obs_service_t *service);
 
 /** Returns the username (if any) for this service context */

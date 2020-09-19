@@ -2,8 +2,8 @@
 
 #include <obs-module.h>
 
-struct opentok {
-	char *server;
+struct opentok_service_data {
+	char *api_key;
 	char *session;
 	char *token;
 	char *output;
@@ -17,37 +17,37 @@ static const char *opentok_name(void *unused)
 
 static void opentok_update(void *data, obs_data_t *settings)
 {
-	struct opentok *service = data;
+	struct opentok_service_data *service_data = data;
 
-	bfree(service->server);
-	bfree(service->session);
-	bfree(service->token);
-	bfree(service->output);
+	bfree(service_data->api_key);
+	bfree(service_data->session);
+	bfree(service_data->token);
+	bfree(service_data->output);
 
-	service->server = bstrdup(obs_data_get_string(settings, "server"));
-	service->session = bstrdup(obs_data_get_string(settings, "session"));
-	service->token = bstrdup(obs_data_get_string(settings, "token"));
-	service->output = bstrdup("opentok_output");
+	service_data->api_key = bstrdup(obs_data_get_string(settings, "api_key"));
+	service_data->session = bstrdup(obs_data_get_string(settings, "session"));
+	service_data->token = bstrdup(obs_data_get_string(settings, "token"));
+	service_data->output = bstrdup("opentok_output");
 }
 
 static void opentok_destroy(void *data)
 {
-	struct opentok *service = data;
+	struct opentok_service_data *service_data = data;
 
-	bfree(service->server);
-	bfree(service->session);
-	bfree(service->token);
-	bfree(service->output);
-	bfree(service);
+	bfree(service_data->api_key);
+	bfree(service_data->session);
+	bfree(service_data->token);
+	bfree(service_data->output);
+	bfree(service_data);
 }
 
 static void *opentok_create(obs_data_t *settings, obs_service_t *service)
 {
-	struct opentok *data = bzalloc(sizeof(struct opentok));
-	opentok_update(data, settings);
+	struct opentok_service_data *service_data = bzalloc(sizeof(struct opentok_service_data));
+	opentok_update(service_data, settings);
 
 	UNUSED_PARAMETER(service);
-	return data;
+	return service_data;
 }
 
 static obs_properties_t *opentok_properties(void *unused)
@@ -57,11 +57,11 @@ static obs_properties_t *opentok_properties(void *unused)
 	obs_properties_t *ppts = obs_properties_create();
 	obs_property_t *p;
 
-	obs_properties_add_text(ppts, "server", "Server Name", OBS_TEXT_DEFAULT);
+	obs_properties_add_text(ppts, "api_key", "OpenTok API key", OBS_TEXT_DEFAULT);
 	obs_properties_add_text(ppts, "session", "OpenTok Session", OBS_TEXT_DEFAULT);
 	obs_properties_add_text(ppts, "token", "OpenTok Token", OBS_TEXT_DEFAULT);
 
-	p = obs_properties_get(ppts, "server");
+	p = obs_properties_get(ppts, "api_key");
 	obs_property_set_visible(p, true);
 
 	p = obs_properties_get(ppts, "session");
@@ -73,34 +73,28 @@ static obs_properties_t *opentok_properties(void *unused)
 	return ppts;
 }
 
-static const char *opentok_url(void *data)
+static const char *opentok_api_key(void *data)
 {
-	struct opentok *service = data;
-	return service->server;
-}
-
-static const char *opentok_key(void *data)
-{
-	UNUSED_PARAMETER(data);
-	return "";
+	struct opentok_service_data *service_data = data;
+	return service_data->api_key;
 }
 
 static const char *opentok_session(void *data)
 {
-	struct opentok *service = data;
-	return service->session;
+	struct opentok_service_data *service_data = data;
+	return service_data->session;
 }
 
 static const char *opentok_token(void *data)
 {
-	struct opentok *service = data;
-	return service->token;
+	struct opentok_service_data *service_data = data;
+	return service_data->token;
 }
 
 static const char *opentok_get_output_type(void *data)
 {
-	struct opentok *service = data;
-	return service->output;
+	struct opentok_service_data *service_data = data;
+	return service_data->output;
 }
 
 struct obs_service_info opentok_service = {
@@ -110,8 +104,7 @@ struct obs_service_info opentok_service = {
 	.destroy        = opentok_destroy,
 	.update         = opentok_update,
 	.get_properties = opentok_properties,
-	.get_url        = opentok_url,
-	.get_key        = opentok_key,
+	.get_api_key    = opentok_api_key,
 	.get_session    = opentok_session,
 	.get_token      = opentok_token,
 	.get_output_type = opentok_get_output_type

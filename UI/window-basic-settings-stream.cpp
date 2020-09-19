@@ -121,7 +121,8 @@ void OBSBasicSettings::LoadStream1Settings()
 			idx = 1;
 		}
 		ui->service->setCurrentIndex(idx);
-		ui->customServer->setText(server);
+		const char *api_key = obs_data_get_string(settings, "api_key");
+		ui->session->setText(QT_UTF8(api_key));
 		const char *session = obs_data_get_string(settings, "session");
 		ui->session->setText(QT_UTF8(session));
 		const char *token = obs_data_get_string(settings, "token");
@@ -198,8 +199,8 @@ void OBSBasicSettings::SaveStream1Settings()
 					    QT_TO_UTF8(ui->authPw->text()));
 		}
 	} else if (vonage) {
-		obs_data_set_string(settings, "server",
-				    QT_TO_UTF8(ui->customServer->text()));
+		obs_data_set_string(settings, "api_key",
+				    QT_TO_UTF8(ui->api_key->text()));
 		obs_data_set_string(settings, "session",
 				    QT_TO_UTF8(ui->session->text()));
 		obs_data_set_string(settings, "token",
@@ -395,6 +396,8 @@ void OBSBasicSettings::on_service_currentIndexChanged(int)
 	ui->authUsername->setVisible(custom);
 	ui->authPwLabel->setVisible(custom);
 	ui->authPwWidget->setVisible(custom);
+	ui->apiKeyLabel->setVisible(vonage);
+	ui->api_key->setVisible(vonage);
 	ui->sessionLabel->setVisible(vonage);
 	ui->session->setVisible(vonage);
 	ui->tokenLabel->setVisible(vonage);
@@ -411,20 +414,20 @@ void OBSBasicSettings::on_service_currentIndexChanged(int)
 	} else if (vonage) {
 		ui->streamKeyLabel->setVisible(false);
 		ui->streamKeyWidget->setVisible(false);
+		ui->serverLabel->setVisible(false);
+		ui->serverStackedWidget->setVisible(false);
 		ui->serverStackedWidget->setCurrentIndex(1);
-		ui->serverLabel->setVisible(true);
-		ui->serverStackedWidget->setVisible(true);
 		obs_properties_t *props = obs_get_service_properties(vonage_service);
-		obs_property_t *server = obs_properties_get(props, "server");
+		obs_property_t *api_key = obs_properties_get(props, "api_key");
 		obs_property_t *session = obs_properties_get(props, "session");
 		obs_property_t *token = obs_properties_get(props, "token");
-		ui->serverLabel->setText(obs_property_description(server));
+		ui->apiKeyLabel->setText(obs_property_description(api_key));
 		ui->sessionLabel->setText(obs_property_description(session));
 		ui->tokenLabel->setText(obs_property_description(token));
 		int min_idx = 1;
-		if (obs_property_visible(server)) {
-			ui->streamkeyPageLayout->insertRow(min_idx, ui->serverLabel,
-							   ui->serverStackedWidget);
+		if (obs_property_visible(api_key)) {
+			ui->streamkeyPageLayout->insertRow(min_idx, ui->apiKeyLabel,
+							   ui->api_key);
 			min_idx++;
 		}
 		if (obs_property_visible(session)) {
@@ -438,8 +441,8 @@ void OBSBasicSettings::on_service_currentIndexChanged(int)
 			min_idx++;
 		}
 		// TODO: josemrecio - is this needed?
-		ui->serverLabel->setVisible(obs_property_visible(server));
-		ui->serverStackedWidget->setVisible(obs_property_visible(server));
+		ui->apiKeyLabel->setVisible(obs_property_visible(api_key));
+		ui->api_key->setVisible(obs_property_visible(api_key));
 		ui->sessionLabel->setVisible(obs_property_visible(session));
 		ui->session->setVisible(obs_property_visible(session));
 		ui->tokenLabel->setVisible(obs_property_visible(token));

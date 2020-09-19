@@ -60,6 +60,7 @@ struct obs_service_info {
 	const char *(*get_url)(void *data);
 	const char *(*get_key)(void *data);
 
+	const char *(*get_api_key)(void *data);
 	const char *(*get_session)(void *data);
 	const char *(*get_token)(void *data);
 
