@@ -122,7 +122,7 @@ void OBSBasicSettings::LoadStream1Settings()
 		}
 		ui->service->setCurrentIndex(idx);
 		const char *api_key = obs_data_get_string(settings, "api_key");
-		ui->session->setText(QT_UTF8(api_key));
+		ui->api_key->setText(QT_UTF8(api_key));
 		const char *session = obs_data_get_string(settings, "session");
 		ui->session->setText(QT_UTF8(session));
 		const char *token = obs_data_get_string(settings, "token");
