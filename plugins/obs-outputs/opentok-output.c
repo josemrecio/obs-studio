@@ -16,8 +16,26 @@
 
 // video and audio capturer
 // OpenTok and OBS formats must be in synch!
+// TODO: josemrecio - test with other formats with the goal of reducing memory copy
+/*
+ot:
+OTC_VIDEO_FRAME_FORMAT_BGRA32
+OTC_VIDEO_FRAME_FORMAT_RGBA32
+OTC_VIDEO_FRAME_FORMAT_UYVY
+OTC_VIDEO_FRAME_FORMAT_YUY2
+
+obs:
+VIDEO_FORMAT_BGRA
+VIDEO_FORMAT_RGBA
+VIDEO_FORMAT_UYVY
+VIDEO_FORMAT_YUY2
+*/
 #define OPENTOK_CAPTURER_OBS_FRAME_FORMAT VIDEO_FORMAT_NV12
 const enum otc_video_frame_format otc_video_format = OTC_VIDEO_FRAME_FORMAT_NV12;
+/*
+#define OPENTOK_CAPTURER_OBS_FRAME_FORMAT VIDEO_FORMAT_UYVY
+const enum otc_video_frame_format otc_video_format = OTC_VIDEO_FRAME_FORMAT_UYVY;
+*/
 #define OPENTOK_CAPTURER_WIDTH 1280
 #define OPENTOK_CAPTURER_HEIGHT 720
 #define OPENTOK_AUDIO_SAMPLE_RATE 48000
