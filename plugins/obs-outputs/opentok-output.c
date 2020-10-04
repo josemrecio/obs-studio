@@ -13,6 +13,13 @@
 // OpenTok options
 //#define OPENTOK_IP_PROXY
 #define OPENTOK_CONSOLE_LOGGING
+#define OPENTOK_CONSOLE_LEVEL OTC_LOG_LEVEL_INFO
+//#define OPENTOK_CONSOLE_LEVEL OTC_LOG_LEVEL_DEBUG
+//#define OPENTOK_CONSOLE_LEVEL OTC_LOG_LEVEL_ALL
+
+#ifdef OPENTOK_IP_PROXY
+#define OPENTOK_IP_PROXY_URL "https://example.com:5678"
+#endif
 
 // video and audio capturer
 // OpenTok and OBS formats must be in synch!
@@ -102,11 +109,14 @@ static otc_bool audio_device_get_capture_settings(const otc_audio_device *audio_
 	if (settings == NULL) {
 		return OTC_FALSE;
 	}
-	// FIXME: josemrecio - check settings
+	// Different number of channels did not work
 	settings->number_of_channels = 1;
 	settings->sampling_rate = OPENTOK_AUDIO_SAMPLE_RATE;
 	return OTC_TRUE;
 }
+
+// this is a global in current OpenTok SDK,
+static struct audio_device *audio_device = NULL;
 
 // custom video capturer
 struct custom_video_capturer {
@@ -175,6 +185,7 @@ static otc_bool video_capturer_start(const otc_video_capturer *capturer, void *u
 struct opentok_output {
 	obs_output_t *output;
 	struct custom_video_capturer *custom_video_capturer;
+	otc_session *session;
 	otc_publisher *publisher;
 	volatile bool active;
 	volatile bool stopping;
@@ -203,6 +214,7 @@ static void on_publisher_error(otc_publisher *publisher,
 		enum otc_publisher_error_code error_code) {
 	UNUSED_PARAMETER(publisher);
 	UNUSED_PARAMETER(user_data);
+	// FIXME: josemrecio - send disconnected signal, and disconnect
 	blog(LOG_DEBUG, "%s - error: %d - %s", __FUNCTION__, error_code, error_string);
 }
 
@@ -269,59 +281,30 @@ static void *opentok_output_create(obs_data_t *settings, obs_output_t *output)
 {
 	UNUSED_PARAMETER(settings);
 	struct opentok_output *opentok_output = NULL;
-	// init OpenTok SDK
+	// init OpenTok SDK and set logging
 	if (otc_init(NULL) != OTC_SUCCESS) {
 		blog(LOG_ERROR, "Could not init OpenTok library");
 		return opentok_output;
 	}
 #ifdef OPENTOK_CONSOLE_LOGGING
 	otc_log_set_logger_callback(on_otc_log_message);
-	otc_log_enable(OTC_LOG_LEVEL_DEBUG); //OTC_LOG_LEVEL_ALL);
+	otc_log_enable(OPENTOK_CONSOLE_LEVEL);
 #endif // OPENTOK_CONSOLE_LOGGING
-	opentok_output = bzalloc(sizeof(struct opentok_output));
-	opentok_output->output = output;
-	pthread_mutex_init(&opentok_output->mutex, NULL);
-
-	return opentok_output;
-}
-
-static void opentok_output_destroy(void *data)
-{
-	blog(LOG_DEBUG, "%s", __FUNCTION__);
-	struct opentok_output *opentok_output = data;
-
-	pthread_mutex_destroy(&opentok_output->mutex);
-	bfree(opentok_output);
-}
-
-static bool opentok_output_start(void *data)
-{
-	struct opentok_output *opentok_output = data;
-	// KK
-	struct video_scale_info video_to = {};
-	video_to.format = OPENTOK_CAPTURER_OBS_FRAME_FORMAT;
-	video_to.width = OPENTOK_CAPTURER_WIDTH;
-	video_to.height = OPENTOK_CAPTURER_HEIGHT;
-	obs_output_set_video_conversion(opentok_output->output, &video_to);
-	struct audio_convert_info audio_to = {};
-	audio_to.format = AUDIO_FORMAT_16BIT;
-	audio_to.speakers = SPEAKERS_MONO;
-	audio_to.samples_per_sec = OPENTOK_AUDIO_SAMPLE_RATE;
-	obs_output_set_audio_conversion(opentok_output->output, &audio_to);
-	// KK
-	obs_service_t *service = obs_output_get_service(opentok_output->output);
-	{
-		struct audio_device *audio_device = bzalloc(sizeof(struct audio_device));
-		audio_device->audio_device_callbacks.user_data = audio_device;
-		audio_device->audio_device_callbacks.destroy_capturer = audio_device_destroy_capturer;
-		audio_device->audio_device_callbacks.start_capturer = audio_device_start_capturer;
-		audio_device->audio_device_callbacks.get_capture_settings = audio_device_get_capture_settings;
-		otc_set_audio_device(&(audio_device->audio_device_callbacks));
+	// global audio device
+	struct audio_device *audio_device = bzalloc(sizeof(struct audio_device));
+	audio_device->audio_device_callbacks.user_data = audio_device;
+	audio_device->audio_device_callbacks.destroy_capturer = audio_device_destroy_capturer;
+	audio_device->audio_device_callbacks.start_capturer = audio_device_start_capturer;
+	audio_device->audio_device_callbacks.get_capture_settings = audio_device_get_capture_settings;
+	otc_set_audio_device(&(audio_device->audio_device_callbacks));
+	if (audio_device == NULL) {
+		error("Could not create OpenTok audio device successfully");
+		return opentok_output;
 	}
-	// OpenTok video capturer and publisher
-	otc_publisher* publisher = NULL;
+	// OpenTok video capturer
+	struct custom_video_capturer *video_capturer = NULL;
 	{
-		struct custom_video_capturer *video_capturer = bzalloc(sizeof(struct custom_video_capturer));
+		video_capturer = bzalloc(sizeof(struct custom_video_capturer));
 		video_capturer->video_capturer_callbacks.user_data = video_capturer;
 		video_capturer->video_capturer_callbacks.init = video_capturer_init;
 		video_capturer->video_capturer_callbacks.destroy = video_capturer_destroy;
@@ -330,8 +313,63 @@ static bool opentok_output_start(void *data)
 		video_capturer->width = OPENTOK_CAPTURER_WIDTH;
 		video_capturer->height = OPENTOK_CAPTURER_HEIGHT;
 		video_capturer->video_format = otc_video_format;
-		opentok_output->custom_video_capturer = video_capturer;
+	}
+	if (video_capturer == NULL) {
+		error("Could not create OpenTok custom video capturer successfully");
+		if (audio_device != NULL) {
+			bfree(audio_device);
+			audio_device = NULL;
+		}
+		return opentok_output;
+	}
 
+	opentok_output = bzalloc(sizeof(struct opentok_output));
+	opentok_output->output = output;
+	pthread_mutex_init(&opentok_output->mutex, NULL);
+	opentok_output->custom_video_capturer = video_capturer;
+	return opentok_output;
+}
+
+static void opentok_output_destroy(void *data)
+{
+	blog(LOG_DEBUG, "%s", __FUNCTION__);
+	struct opentok_output *opentok_output = data;
+	otc_status code = otc_destroy();
+	debug("OpenTok destroy: %d", code);
+	if (audio_device != NULL) {
+		bfree(audio_device);
+		audio_device = NULL;
+	}
+	if (opentok_output->custom_video_capturer != NULL) {
+		bfree(opentok_output->custom_video_capturer);
+		opentok_output->custom_video_capturer = NULL;
+	}
+	pthread_mutex_destroy(&opentok_output->mutex);
+	bfree(opentok_output);
+}
+
+static bool opentok_output_start(void *data)
+{
+	struct opentok_output *opentok_output = data;
+	// media transformations to adapt to OpenTok SDK media expectations
+	struct video_scale_info video_to = {};
+	video_to.format = OPENTOK_CAPTURER_OBS_FRAME_FORMAT;
+	video_to.width = OPENTOK_CAPTURER_WIDTH;
+	video_to.height = OPENTOK_CAPTURER_HEIGHT;
+	obs_output_set_video_conversion(opentok_output->output, &video_to);
+	struct audio_convert_info audio_to = {};
+	audio_to.format = AUDIO_FORMAT_16BIT_PLANAR;
+	// SPEAKERS_MONO or SPEAKERS_STEREO work
+	//audio_to.speakers = SPEAKERS_MONO;
+	audio_to.samples_per_sec = OPENTOK_AUDIO_SAMPLE_RATE;
+	obs_output_set_audio_conversion(opentok_output->output, &audio_to);
+	// OpenTok publisher
+	otc_publisher* publisher = NULL;
+	{
+		if (opentok_output->custom_video_capturer == NULL) {
+			error("Could not create OpenTok publisher successfully: custom video capturer");
+			return false;
+		}
 		struct otc_publisher_callbacks publisher_callbacks = {0};
 		publisher_callbacks.user_data = NULL; // opentok_output;
 		publisher_callbacks.on_stream_created = on_publisher_stream_created;
@@ -340,7 +378,7 @@ static bool opentok_output_start(void *data)
 		publisher_callbacks.on_error = on_publisher_error;
 
 		publisher = otc_publisher_new("OBS-studio",
-				&(video_capturer->video_capturer_callbacks),
+				&(opentok_output->custom_video_capturer->video_capturer_callbacks),
 				&publisher_callbacks);
 	}
 	if (publisher == NULL) {
@@ -350,6 +388,7 @@ static bool opentok_output_start(void *data)
 	opentok_output->publisher = publisher;
 	// OpenTok session
 	otc_session *session = NULL;
+	obs_service_t *service = obs_output_get_service(opentok_output->output);
 	{
 		struct otc_session_callbacks session_callbacks = {0};
 		//session_callbacks.user_data = &renderer_manager;
@@ -361,16 +400,15 @@ static bool opentok_output_start(void *data)
 		session_callbacks.on_disconnected = on_session_disconnected;
 		session_callbacks.on_error = on_session_error;
 		session_callbacks.user_data = opentok_output;
-		debug("KK - service name: %s - id: %s", obs_service_get_name(service), obs_service_get_id(service));
-		// TODO: josemrecio - add API KEY setting
+		debug("%s - service name: %s - id: %s", __FUNCTION__, obs_service_get_name(service), obs_service_get_id(service));
 		const char* api_key = obs_service_get_api_key(service);
 		const char* session_id = obs_service_get_session(service);
-		debug("KK - api_key: %s", api_key);
-		debug("KK - sessionId: %s", session_id);
+		debug("%s - api_key: %s", __FUNCTION__, api_key);
+		debug("%s - sessionId: %s", __FUNCTION__, session_id);
 #ifdef OPENTOK_IP_PROXY
 		// IP Proxy
 		otc_session_settings *session_settings = otc_session_settings_new();
-		otc_session_settings_set_proxy_url(session_settings, "https://test.ch3m4.com:8888");
+		otc_session_settings_set_proxy_url(session_settings, OPENTOK_IP_PROXY_URL);
 		session = otc_session_new_with_settings(api_key, session_id, &session_callbacks, session_settings);
 		otc_session_settings_delete(session_settings);
 #else
@@ -380,8 +418,13 @@ static bool opentok_output_start(void *data)
 	// FIXME: call otc_session_delete(session) on stop
 	if (session == NULL) {
 		error("Could not create OpenTok session successfully");
+		if (opentok_output->publisher != NULL) {
+			otc_publisher_delete(opentok_output->publisher);
+			opentok_output->publisher = NULL;
+		}
 		return false;
 	}
+	opentok_output->session = session;
 	const char* token = obs_service_get_token(service);
 	debug("KK - token: %s", token);
 	otc_session_connect(session, token);
@@ -402,23 +445,27 @@ static bool opentok_output_start(void *data)
 
 static void opentok_output_stop(void *data, uint64_t ts)
 {
-	struct opentok_output *opentok_output = data;
 	UNUSED_PARAMETER(ts);
+	struct opentok_output *opentok_output = data;
+	obs_output_end_data_capture(opentok_output->output);
 	blog(LOG_DEBUG, "%s", __FUNCTION__);
 	// FIXME: josemrecio - call otc_session_delete(session) on stop? or on destroy?
 	// FIXME: josemrecio - free memory allocated at start: audio and video capturers? anything else?
 	// FIXME: josemrecio - call otc_publisher_delete(publisher) on stop? or on destroy?
-	opentok_output->custom_video_capturer = NULL;
+	otc_session *session = opentok_output->session;
+	if (opentok_output->publisher != NULL) {
+		otc_session_unpublish(session, opentok_output->publisher);
+		otc_publisher_delete(opentok_output->publisher);
+		opentok_output->publisher = NULL;
+	}
+	otc_session_disconnect(session);
+	otc_session_delete(session);
+	obs_output_signal_stop(opentok_output->output, OBS_OUTPUT_SUCCESS);
 	/*
 	struct opentok_output *opentok_output = data;
 	opentok_output->stop_ts = ts / 1000;
 	os_atomic_set_bool(&opentok_output->stopping, true);
 	 */
-}
-
-static inline int generate_random_integer() {
-  //srand(time(nullptr));
-  return rand();
 }
 
 static void opentok_receive_video(void *data, struct video_data *video_data)
@@ -427,29 +474,15 @@ static void opentok_receive_video(void *data, struct video_data *video_data)
 	struct opentok_output *opentok_output = data;
 	struct custom_video_capturer *video_capturer = opentok_output->custom_video_capturer;
 	if (video_capturer == NULL) {
+		error("No capturer is set, discarded frame");
 		return;
 	}
-//	uint8_t *buffer = malloc(sizeof(uint8_t) * video_capturer->width * video_capturer->height * 4);
-//	memset(buffer, generate_random_integer() & 0xFF, video_capturer->width * video_capturer->height * 4);
-//	otc_video_frame *otc_frame = otc_video_frame_new(OTC_VIDEO_FRAME_FORMAT_ARGB32, video_capturer->width, video_capturer->height, buffer);
-//	otc_video_capturer_provide_frame(video_capturer->video_capturer, 0, otc_frame);
-//	if (otc_frame != NULL) {
-//		otc_video_frame_delete(otc_frame);
-//	}
-	//blog(LOG_DEBUG, "%s", __FUNCTION__);
-	//otc_video_frame_new_NV12_wrapper(width, height, y_plane, y_stride, uv_plane, uv_stride)
 	otc_video_frame *otc_frame = otc_video_frame_new_from_planes(
 			video_capturer->video_format,
 			video_capturer->width,
 			video_capturer->height,
 			(const uint8_t **)video_data->data,
-			video_data->linesize);
-	    //const uint8_t **planes, int *strides)
-//	otc_video_frame *otc_frame = otc_video_frame_new(
-//			video_capturer->video_format,
-//			video_capturer->width,
-//			video_capturer->height,
-//			(const uint8_t *)video_data->data);
+			(int *)video_data->linesize);
     otc_video_capturer_provide_frame(video_capturer->video_capturer, 0, otc_frame);
     if (otc_frame != NULL) {
       otc_video_frame_delete(otc_frame);
@@ -459,26 +492,8 @@ static void opentok_receive_video(void *data, struct video_data *video_data)
 static void opentok_receive_audio(void *data, struct audio_data *audio_data)
 {
 	UNUSED_PARAMETER(data);
-	UNUSED_PARAMETER(audio_data);
-	/*
-	struct opentok_output *opentok_output = data;
-	opentok_output->onAudioFrame(frame);
-	*/
-/*
-  int16_t samples[480];
-  static double time = 0;
-
-  while (device->capturer_thread_exit.load() == false) {
-    for (int i = 0; i < 480; i++) {
-      double val = (INT16_MAX  * 0.75) * cos(2.0 * M_PI * 4.0 * time / 10.0 );
-      samples[i] = (int16_t)val;
-      time += 10.0 / 480.0;
-    }
-    otc_audio_device_write_capture_data(samples, 480);
-    usleep(10 * 1000);
-  }
-*/
-	otc_audio_device_write_capture_data(audio_data->data, audio_data->frames);
+	//blog(LOG_DEBUG, "%p: %u frames", audio_data->data[0], audio_data->frames);
+	otc_audio_device_write_capture_data((const int16_t *)audio_data->data[0], audio_data->frames);
 }
 
 // TODO: josemrecio - these are taken from rtmp, check whether they make sense
