@@ -6,6 +6,8 @@ set_property(CACHE WITH_RTMPS PROPERTY STRINGS AUTO ON OFF)
 # TODO: josemrecio - add support for all platforms
 if("${CMAKE_SYSTEM_NAME}" MATCHES "Linux")
 	find_package(Libopentok REQUIRED)
+elseif(UNIX AND APPLE)
+	find_package(Libopentok REQUIRED)
 else()
 	message(FATAL_ERROR "This version supports OpenTok integration only in Linux")
 endif()
