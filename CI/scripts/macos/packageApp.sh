@@ -20,7 +20,7 @@ cp ../CI/scripts/macos/app/obs.icns ./OBS.app/Contents/Resources
 cp -R rundir/RelWithDebInfo/obs-plugins/ ./OBS.app/Contents/PlugIns
 cp ../CI/scripts/macos/app/Info.plist ./OBS.app/Contents
 
-../CI/scripts/macos/package/dylibBundler -b -cd -d ./OBS.app/Contents/Frameworks -p @executable_path/../Frameworks/ \
+../CI/install/osx/dylibBundler -b -cd -d ./OBS.app/Contents/Frameworks -p @executable_path/../Frameworks/ \
 -s ./OBS.app/Contents/MacOS \
 -x ./OBS.app/Contents/PlugIns/coreaudio-encoder.so \
 -x ./OBS.app/Contents/PlugIns/decklink-ouput-ui.so \
@@ -41,7 +41,7 @@ cp ../CI/scripts/macos/app/Info.plist ./OBS.app/Contents
 -x ./OBS.app/Contents/MacOS/obslua.so \
 -x ./OBS.app/Contents/PlugIns/obs-x264.so \
 -x ./OBS.app/Contents/PlugIns/text-freetype2.so \
--x ./OBS.app/Contents/PlugIns/obs-libfdk.so
+#-x ./OBS.app/Contents/PlugIns/obs-libfdk.so
 # -x ./OBS.app/Contents/PlugIns/obs-outputs.so \
 
 #/usr/local/Cellar/qt/${QT_VERSION}/bin/macdeployqt ./OBS.app
