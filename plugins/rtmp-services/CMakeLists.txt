@@ -13,7 +13,8 @@ set(rtmp-services_SOURCES
 	showroom.c
 	rtmp-common.c
 	rtmp-custom.c
-	rtmp-services-main.c)
+	rtmp-services-main.c
+	opentok.c)
 
 if(WIN32)
 	set(MODULE_DESCRIPTION "OBS RTMP Services")

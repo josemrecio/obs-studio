@@ -22,7 +22,10 @@ extern QCefCookieManager *panel_cookies;
 enum class ListOpt : int {
 	ShowAll = 1,
 	Custom,
+	Vonage
 };
+
+const char *vonage_service = "opentok";
 
 enum class Section : int {
 	Connect,
@@ -32,6 +35,11 @@ enum class Section : int {
 inline bool OBSBasicSettings::IsCustomService() const
 {
 	return ui->service->currentData().toInt() == (int)ListOpt::Custom;
+}
+
+inline bool OBSBasicSettings::IsVonage() const
+{
+	return ui->service->currentData().toInt() == (int)ListOpt::Vonage;
 }
 
 void OBSBasicSettings::InitStreamPage()
@@ -102,6 +110,20 @@ void OBSBasicSettings::LoadStream1Settings()
 		ui->authUsername->setText(QT_UTF8(username));
 		ui->authPw->setText(QT_UTF8(password));
 		ui->useAuth->setChecked(use_auth);
+	} else if (strcmp(type, vonage_service) == 0) {
+		int idx = ui->service->findText(service);
+		if (idx == -1) {
+			if (service && *service)
+				ui->service->insertItem(1, service);
+			idx = 1;
+		}
+		ui->service->setCurrentIndex(idx);
+		const char *api_key = obs_data_get_string(settings, "api_key");
+		ui->api_key->setText(QT_UTF8(api_key));
+		const char *session = obs_data_get_string(settings, "session");
+		ui->session->setText(QT_UTF8(session));
+		const char *token = obs_data_get_string(settings, "token");
+		ui->token->setText(QT_UTF8(token));
 	} else {
 		int idx = ui->service->findText(service);
 		if (idx == -1) {
@@ -148,7 +170,8 @@ void OBSBasicSettings::LoadStream1Settings()
 void OBSBasicSettings::SaveStream1Settings()
 {
 	bool customServer = IsCustomService();
-	const char *service_id = customServer ? "rtmp_custom" : "rtmp_common";
+	const bool vonage = IsVonage();
+	const char *service_id = vonage ? vonage_service : (customServer ? "rtmp_custom" : "rtmp_common");
 
 	obs_service_t *oldService = main->GetService();
 	OBSData hotkeyData = obs_hotkeys_save_service(oldService);
@@ -157,13 +180,7 @@ void OBSBasicSettings::SaveStream1Settings()
 	OBSData settings = obs_data_create();
 	obs_data_release(settings);
 
-	if (!customServer) {
-		obs_data_set_string(settings, "service",
-				    QT_TO_UTF8(ui->service->currentText()));
-		obs_data_set_string(
-			settings, "server",
-			QT_TO_UTF8(ui->server->currentData().toString()));
-	} else {
+	if (customServer) {
 		obs_data_set_string(settings, "server",
 				    QT_TO_UTF8(ui->customServer->text()));
 		obs_data_set_bool(settings, "use_auth",
@@ -175,6 +192,19 @@ void OBSBasicSettings::SaveStream1Settings()
 			obs_data_set_string(settings, "password",
 					    QT_TO_UTF8(ui->authPw->text()));
 		}
+	} else if (vonage) {
+		obs_data_set_string(settings, "api_key",
+				    QT_TO_UTF8(ui->api_key->text()));
+		obs_data_set_string(settings, "session",
+				    QT_TO_UTF8(ui->session->text()));
+		obs_data_set_string(settings, "token",
+				    QT_TO_UTF8(ui->token->text()));
+	} else {
+		obs_data_set_string(settings, "service",
+				    QT_TO_UTF8(ui->service->currentText()));
+		obs_data_set_string(
+			settings, "server",
+			QT_TO_UTF8(ui->server->currentData().toString()));
 	}
 
 	if (!!auth && strcmp(auth->service(), "Twitch") == 0) {
@@ -282,6 +312,10 @@ void OBSBasicSettings::LoadServices(bool showAll)
 	}
 
 	ui->service->insertItem(
+		0, QTStr(obs_service_get_display_name(vonage_service)),
+		QVariant((int)ListOpt::Vonage));
+
+	ui->service->insertItem(
 		0, QTStr("Basic.AutoConfig.StreamPage.Service.Custom"),
 		QVariant((int)ListOpt::Custom));
 
@@ -310,6 +344,7 @@ void OBSBasicSettings::on_service_currentIndexChanged(int)
 
 	std::string service = QT_TO_UTF8(ui->service->currentText());
 	bool custom = IsCustomService();
+	const bool vonage = IsVonage();
 
 	ui->disconnectAccount->setVisible(false);
 	ui->bandwidthTestEnable->setVisible(false);
@@ -342,6 +377,12 @@ void OBSBasicSettings::on_service_currentIndexChanged(int)
 	ui->authUsername->setVisible(custom);
 	ui->authPwLabel->setVisible(custom);
 	ui->authPwWidget->setVisible(custom);
+	ui->apiKeyLabel->setVisible(vonage);
+	ui->api_key->setVisible(vonage);
+	ui->sessionLabel->setVisible(vonage);
+	ui->session->setVisible(vonage);
+	ui->tokenLabel->setVisible(vonage);
+	ui->token->setVisible(vonage);
 
 	if (custom) {
 		ui->streamkeyPageLayout->insertRow(1, ui->serverLabel,
@@ -351,6 +392,43 @@ void OBSBasicSettings::on_service_currentIndexChanged(int)
 		ui->serverStackedWidget->setVisible(true);
 		ui->serverLabel->setVisible(true);
 		on_useAuth_toggled();
+	} else if (vonage) {
+		ui->streamKeyLabel->setVisible(false);
+		ui->streamKeyWidget->setVisible(false);
+		ui->serverLabel->setVisible(false);
+		ui->serverStackedWidget->setVisible(false);
+		ui->serverStackedWidget->setCurrentIndex(1);
+		obs_properties_t *props = obs_get_service_properties(vonage_service);
+		obs_property_t *api_key = obs_properties_get(props, "api_key");
+		obs_property_t *session = obs_properties_get(props, "session");
+		obs_property_t *token = obs_properties_get(props, "token");
+		ui->apiKeyLabel->setText(obs_property_description(api_key));
+		ui->sessionLabel->setText(obs_property_description(session));
+		ui->tokenLabel->setText(obs_property_description(token));
+		int min_idx = 1;
+		if (obs_property_visible(api_key)) {
+			ui->streamkeyPageLayout->insertRow(min_idx, ui->apiKeyLabel,
+							   ui->api_key);
+			min_idx++;
+		}
+		if (obs_property_visible(session)) {
+			ui->streamkeyPageLayout->insertRow(min_idx, ui->sessionLabel,
+							   ui->session);
+			min_idx++;
+		}
+		if (obs_property_visible(token)) {
+			ui->streamkeyPageLayout->insertRow(min_idx, ui->tokenLabel,
+							   ui->token);
+			min_idx++;
+		}
+		// TODO: josemrecio - is this needed?
+		ui->apiKeyLabel->setVisible(obs_property_visible(api_key));
+		ui->api_key->setVisible(obs_property_visible(api_key));
+		ui->sessionLabel->setVisible(obs_property_visible(session));
+		ui->session->setVisible(obs_property_visible(session));
+		ui->tokenLabel->setVisible(obs_property_visible(token));
+		ui->token->setVisible(obs_property_visible(token));
+		obs_properties_destroy(props);
 	} else {
 		ui->serverStackedWidget->setCurrentIndex(0);
 	}
@@ -428,7 +506,8 @@ void OBSBasicSettings::on_authPwShow_clicked()
 OBSService OBSBasicSettings::SpawnTempService()
 {
 	bool custom = IsCustomService();
-	const char *service_id = custom ? "rtmp_custom" : "rtmp_common";
+	const bool vonage = IsVonage();
+	const char *service_id = vonage ? vonage_service : (custom ? "rtmp_custom" : "rtmp_common");
 
 	OBSData settings = obs_data_create();
 	obs_data_release(settings);
@@ -536,6 +615,7 @@ void OBSBasicSettings::on_disconnectAccount_clicked()
 
 	ui->bandwidthTestEnable->setChecked(false);
 
+	// TODO: josemrecio - should visible be set to false?
 	ui->streamKeyWidget->setVisible(true);
 	ui->streamKeyLabel->setVisible(true);
 	ui->connectAccount2->setVisible(true);

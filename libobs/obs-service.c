@@ -227,6 +227,36 @@ const char *obs_service_get_key(const obs_service_t *service)
 	return service->info.get_key(service->context.data);
 }
 
+const char *obs_service_get_api_key(const obs_service_t *service)
+{
+	if (!obs_service_valid(service, "obs_service_get_api_key"))
+		return NULL;
+
+	if (!service->info.get_api_key)
+		return NULL;
+	return service->info.get_api_key(service->context.data);
+}
+
+const char *obs_service_get_session(const obs_service_t *service)
+{
+	if (!obs_service_valid(service, "obs_service_get_session"))
+		return NULL;
+
+	if (!service->info.get_session)
+		return NULL;
+	return service->info.get_session(service->context.data);
+}
+
+const char *obs_service_get_token(const obs_service_t *service)
+{
+	if (!obs_service_valid(service, "obs_service_get_token"))
+		return NULL;
+
+	if (!service->info.get_token)
+		return NULL;
+	return service->info.get_token(service->context.data);
+}
+
 const char *obs_service_get_username(const obs_service_t *service)
 {
 	if (!obs_service_valid(service, "obs_service_get_username"))

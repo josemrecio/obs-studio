@@ -56,6 +56,52 @@ bool UIValidation::NoSourcesConfirmation(QWidget *parent)
 		return true;
 }
 
+static StreamSettingsAction
+OpenTokStreamSettingsConfirmation(QWidget *parent, OBSService service)
+{
+	char const *session = obs_service_get_session(service);
+	char const *token = obs_service_get_token(service);
+	bool hasSession = (session != NULL && session[0] != '\0');
+	bool hasToken = (token != NULL && token[0] != '\0');
+	if (hasSession && hasToken)
+		return StreamSettingsAction::ContinueStream;
+
+	QString msg = QTStr("Review your settings");
+	QMessageBox messageBox(parent);
+	messageBox.setWindowTitle(
+			QTStr("Basic.Settings.Stream.MissingSettingAlert"));
+	messageBox.setText(msg);
+
+	QPushButton *cancel;
+	QPushButton *settings;
+
+#ifdef __APPLE__
+#define ACCEPT_BUTTON QMessageBox::AcceptRole
+#define REJECT_BUTTON QMessageBox::ResetRole
+#else
+#define ACCEPT_BUTTON QMessageBox::NoRole
+#define REJECT_BUTTON QMessageBox::NoRole
+#endif
+
+	settings = messageBox.addButton(
+			QTStr("Basic.Settings.Stream.StreamSettingsWarning"),
+			ACCEPT_BUTTON);
+	cancel = messageBox.addButton(QTStr("Cancel"), REJECT_BUTTON);
+
+	messageBox.setDefaultButton(settings);
+	messageBox.setEscapeButton(cancel);
+
+	messageBox.setIcon(QMessageBox::Warning);
+	messageBox.exec();
+
+	if (messageBox.clickedButton() == settings)
+		return StreamSettingsAction::OpenSettings;
+	if (messageBox.clickedButton() == cancel)
+		return StreamSettingsAction::Cancel;
+
+	return StreamSettingsAction::Cancel;
+}
+
 StreamSettingsAction
 UIValidation::StreamSettingsConfirmation(QWidget *parent, OBSService service)
 {
@@ -63,6 +109,9 @@ UIValidation::StreamSettingsConfirmation(QWidget *parent, OBSService service)
 	// So only check there is a URL
 	char const *serviceType = obs_service_get_type(service);
 	bool isCustomUrlService = (strcmp(serviceType, "rtmp_custom") == 0);
+
+	if (strcmp(serviceType, "opentok") == 0)
+		return OpenTokStreamSettingsConfirmation(parent, service);
 
 	char const *streamUrl = obs_service_get_url(service);
 	char const *streamKey = obs_service_get_key(service);

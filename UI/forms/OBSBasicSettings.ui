@@ -1146,7 +1146,7 @@
                </property>
               </widget>
              </item>
-             <item row="8" column="0">
+             <item row="9" column="0">
               <widget class="QLabel" name="authUsernameLabel">
                <property name="text">
                 <string>Basic.Settings.Stream.Custom.Username</string>
@@ -1156,10 +1156,10 @@
                </property>
               </widget>
              </item>
-             <item row="8" column="1">
+             <item row="9" column="1">
               <widget class="QLineEdit" name="authUsername"/>
              </item>
-             <item row="9" column="0">
+             <item row="10" column="0">
               <widget class="QLabel" name="authPwLabel">
                <property name="text">
                 <string>Basic.Settings.Stream.Custom.Password</string>
@@ -1169,7 +1169,7 @@
                </property>
               </widget>
              </item>
-             <item row="9" column="1">
+             <item row="10" column="1">
               <widget class="QWidget" name="authPwWidget" native="true">
                <layout class="QHBoxLayout" name="horizontalLayout_25">
                 <property name="leftMargin">
@@ -1201,6 +1201,45 @@
                </layout>
               </widget>
              </item>
+             <item row="11" column="1">
+              <widget class="QLineEdit" name="api_key"/>
+              </item>
+             <item row="11" column="0">
+              <widget class="QLabel" name="apiKeyLabel">
+               <property name="text">
+                <string>API key</string>
+               </property>
+               <property name="buddy">
+                <cstring>api_key</cstring>
+               </property>
+              </widget>
+             </item>
+             <item row="12" column="1">
+              <widget class="QLineEdit" name="session"/>
+              </item>
+             <item row="12" column="0">
+              <widget class="QLabel" name="sessionLabel">
+               <property name="text">
+                <string>Session</string>
+               </property>
+               <property name="buddy">
+                <cstring>session</cstring>
+               </property>
+              </widget>
+             </item>
+             <item row="13" column="1">
+              <widget class="QLineEdit" name="token"/>
+              </item>
+             <item row="13" column="0">
+              <widget class="QLabel" name="tokenLabel">
+               <property name="text">
+                <string>Token</string>
+               </property>
+               <property name="buddy">
+                <cstring>token</cstring>
+               </property>
+              </widget>
+             </item>
              <item row="7" column="1">
               <widget class="QComboBox" name="twitchAddonDropdown"/>
              </item>
@@ -1213,6 +1252,19 @@
                 <cstring>twitchAddonDropdown</cstring>
                </property>
               </widget>
+             </item>
+             <item row="8" column="0">
+              <widget class="QLabel" name="mixerAddonLabel">
+               <property name="text">
+                <string>Basic.Settings.Stream.MixerAddon</string>
+               </property>
+               <property name="buddy">
+                <cstring>mixerAddonDropdown</cstring>
+               </property>
+              </widget>
+             </item>
+             <item row="8" column="1">
+              <widget class="QComboBox" name="mixerAddonDropdown"/>
              </item>
             </layout>
            </widget>
@@ -5470,6 +5522,8 @@
   <tabstop>authUsername</tabstop>
   <tabstop>authPw</tabstop>
   <tabstop>authPwShow</tabstop>
+  <tabstop>session</tabstop>
+  <tabstop>token</tabstop>
   <tabstop>scrollArea_3</tabstop>
   <tabstop>outputMode</tabstop>
   <tabstop>simpleOutputVBitrate</tabstop>

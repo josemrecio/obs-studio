@@ -12,7 +12,7 @@ OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE("obs-outputs", "en-US")
 MODULE_EXPORT const char *obs_module_description(void)
 {
-	return "OBS core RTMP/FLV/null/FTL outputs";
+	return "OBS core RTMP/FLV/null/FTL/OpenTok outputs";
 }
 
 extern struct obs_output_info rtmp_output_info;
@@ -21,6 +21,7 @@ extern struct obs_output_info flv_output_info;
 #if COMPILE_FTL
 extern struct obs_output_info ftl_output_info;
 #endif
+extern struct obs_output_info opentok_output_info;
 
 #if defined(_WIN32) && defined(MBEDTLS_THREADING_ALT)
 void mbed_mutex_init(mbedtls_threading_mutex_t *m)
@@ -71,6 +72,7 @@ bool obs_module_load(void)
 #if COMPILE_FTL
 	obs_register_output(&ftl_output_info);
 #endif
+	obs_register_output(&opentok_output_info);
 	return true;
 }
 

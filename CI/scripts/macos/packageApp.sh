@@ -3,6 +3,9 @@
 # Exit if something fails
 set -e
 
+# folder for QT artifacts
+__TMP_QT_HOME=/tmp/obsdeps
+
 rm -rf ./OBS.app
 
 mkdir OBS.app
@@ -23,14 +26,11 @@ cp ../CI/scripts/macos/app/Info.plist ./OBS.app/Contents
 -x ./OBS.app/Contents/PlugIns/decklink-ouput-ui.so \
 -x ./OBS.app/Contents/PlugIns/frontend-tools.so \
 -x ./OBS.app/Contents/PlugIns/image-source.so \
--x ./OBS.app/Contents/PlugIns/linux-jack.so \
 -x ./OBS.app/Contents/PlugIns/mac-avcapture.so \
 -x ./OBS.app/Contents/PlugIns/mac-capture.so \
 -x ./OBS.app/Contents/PlugIns/mac-decklink.so \
 -x ./OBS.app/Contents/PlugIns/mac-syphon.so \
 -x ./OBS.app/Contents/PlugIns/mac-vth264.so \
--x ./OBS.app/Contents/PlugIns/obs-browser.so \
--x ./OBS.app/Contents/PlugIns/obs-browser-page \
 -x ./OBS.app/Contents/PlugIns/obs-ffmpeg.so \
 -x ./OBS.app/Contents/PlugIns/obs-filters.so \
 -x ./OBS.app/Contents/PlugIns/obs-transitions.so \
@@ -42,17 +42,18 @@ cp ../CI/scripts/macos/app/Info.plist ./OBS.app/Contents
 -x ./OBS.app/Contents/PlugIns/obs-x264.so \
 -x ./OBS.app/Contents/PlugIns/text-freetype2.so \
 -x ./OBS.app/Contents/PlugIns/obs-libfdk.so
-# -x ./OBS.app/Contents/MacOS/_obspython.so \
 # -x ./OBS.app/Contents/PlugIns/obs-outputs.so \
 
-/usr/local/Cellar/qt/${QT_VERSION}/bin/macdeployqt ./OBS.app
+#/usr/local/Cellar/qt/${QT_VERSION}/bin/macdeployqt ./OBS.app
+${__TMP_QT_HOME}/bin/macdeployqt ./OBS.app
 
 mv ./OBS.app/Contents/MacOS/libobs-opengl.so ./OBS.app/Contents/Frameworks
 
 rm -f -r ./OBS.app/Contents/Frameworks/QtNetwork.framework
 
 # put qt network in here becasuse streamdeck uses it
-cp -R /usr/local/opt/qt/lib/QtNetwork.framework ./OBS.app/Contents/Frameworks
+#cp -R /usr/local/opt/qt/lib/QtNetwork.framework ./OBS.app/Contents/Frameworks
+cp -R ${__TMP_QT_HOME}/lib/QtNetwork.framework ./OBS.app/Contents/Frameworks
 chmod -R +w ./OBS.app/Contents/Frameworks/QtNetwork.framework
 rm -r ./OBS.app/Contents/Frameworks/QtNetwork.framework/Headers
 rm -r ./OBS.app/Contents/Frameworks/QtNetwork.framework/Versions/5/Headers/
@@ -62,17 +63,17 @@ install_name_tool -change /usr/local/Cellar/qt/${QT_VERSION}/lib/QtCore.framewor
 
 
 # decklink ui qt
-install_name_tool -change /usr/local/opt/qt/lib/QtGui.framework/Versions/5/QtGui @executable_path/../Frameworks/QtGui.framework/Versions/5/QtGui ./OBS.app/Contents/PlugIns/decklink-ouput-ui.so
-install_name_tool -change /usr/local/opt/qt/lib/QtCore.framework/Versions/5/QtCore @executable_path/../Frameworks/QtCore.framework/Versions/5/QtCore ./OBS.app/Contents/PlugIns/decklink-ouput-ui.so
-install_name_tool -change /usr/local/opt/qt/lib/QtWidgets.framework/Versions/5/QtWidgets @executable_path/../Frameworks/QtWidgets.framework/Versions/5/QtWidgets ./OBS.app/Contents/PlugIns/decklink-ouput-ui.so
+install_name_tool -change ${__TMP_QT_HOME}/lib/QtGui.framework/Versions/5/QtGui @executable_path/../Frameworks/QtGui.framework/Versions/5/QtGui ./OBS.app/Contents/PlugIns/decklink-ouput-ui.so
+install_name_tool -change ${__TMP_QT_HOME}/lib/QtCore.framework/Versions/5/QtCore @executable_path/../Frameworks/QtCore.framework/Versions/5/QtCore ./OBS.app/Contents/PlugIns/decklink-ouput-ui.so
+install_name_tool -change ${__TMP_QT_HOME}/lib/QtWidgets.framework/Versions/5/QtWidgets @executable_path/../Frameworks/QtWidgets.framework/Versions/5/QtWidgets ./OBS.app/Contents/PlugIns/decklink-ouput-ui.so
 
 # frontend tools qt
-install_name_tool -change /usr/local/opt/qt/lib/QtGui.framework/Versions/5/QtGui @executable_path/../Frameworks/QtGui.framework/Versions/5/QtGui ./OBS.app/Contents/PlugIns/frontend-tools.so
-install_name_tool -change /usr/local/opt/qt/lib/QtCore.framework/Versions/5/QtCore @executable_path/../Frameworks/QtCore.framework/Versions/5/QtCore ./OBS.app/Contents/PlugIns/frontend-tools.so
-install_name_tool -change /usr/local/opt/qt/lib/QtWidgets.framework/Versions/5/QtWidgets @executable_path/../Frameworks/QtWidgets.framework/Versions/5/QtWidgets ./OBS.app/Contents/PlugIns/frontend-tools.so
+install_name_tool -change ${__TMP_QT_HOME}/lib/QtGui.framework/Versions/5/QtGui @executable_path/../Frameworks/QtGui.framework/Versions/5/QtGui ./OBS.app/Contents/PlugIns/frontend-tools.so
+install_name_tool -change ${__TMP_QT_HOME}/lib/QtCore.framework/Versions/5/QtCore @executable_path/../Frameworks/QtCore.framework/Versions/5/QtCore ./OBS.app/Contents/PlugIns/frontend-tools.so
+install_name_tool -change ${__TMP_QT_HOME}/lib/QtWidgets.framework/Versions/5/QtWidgets @executable_path/../Frameworks/QtWidgets.framework/Versions/5/QtWidgets ./OBS.app/Contents/PlugIns/frontend-tools.so
 
 # vst qt
-install_name_tool -change /usr/local/opt/qt/lib/QtGui.framework/Versions/5/QtGui @executable_path/../Frameworks/QtGui.framework/Versions/5/QtGui ./OBS.app/Contents/PlugIns/obs-vst.so
-install_name_tool -change /usr/local/opt/qt/lib/QtCore.framework/Versions/5/QtCore @executable_path/../Frameworks/QtCore.framework/Versions/5/QtCore ./OBS.app/Contents/PlugIns/obs-vst.so
-install_name_tool -change /usr/local/opt/qt/lib/QtWidgets.framework/Versions/5/QtWidgets @executable_path/../Frameworks/QtWidgets.framework/Versions/5/QtWidgets ./OBS.app/Contents/PlugIns/obs-vst.so
-install_name_tool -change /usr/local/opt/qt/lib/QtMacExtras.framework/Versions/5/QtMacExtras @executable_path/../Frameworks/QtMacExtras.framework/Versions/5/QtMacExtras ./OBS.app/Contents/PlugIns/obs-vst.so
+install_name_tool -change ${__TMP_QT_HOME}/lib/QtGui.framework/Versions/5/QtGui @executable_path/../Frameworks/QtGui.framework/Versions/5/QtGui ./OBS.app/Contents/PlugIns/obs-vst.so
+install_name_tool -change ${__TMP_QT_HOME}/lib/QtCore.framework/Versions/5/QtCore @executable_path/../Frameworks/QtCore.framework/Versions/5/QtCore ./OBS.app/Contents/PlugIns/obs-vst.so
+install_name_tool -change ${__TMP_QT_HOME}/lib/QtWidgets.framework/Versions/5/QtWidgets @executable_path/../Frameworks/QtWidgets.framework/Versions/5/QtWidgets ./OBS.app/Contents/PlugIns/obs-vst.so
+install_name_tool -change ${__TMP_QT_HOME}/lib/QtMacExtras.framework/Versions/5/QtMacExtras @executable_path/../Frameworks/QtMacExtras.framework/Versions/5/QtMacExtras ./OBS.app/Contents/PlugIns/obs-vst.so
